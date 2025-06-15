@@ -1,3 +1,4 @@
+
 import { Button } from '@/components/ui/button';
 import { Zap } from 'lucide-react'; // Using Zap icon for DripSeek
 
@@ -26,8 +27,8 @@ export function DemoPlayback({ onDripSeekClick }: DemoPlaybackProps) {
             allowFullScreen
             className="absolute top-0 left-0 w-full h-full"
           ></iframe>
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-             {/* Controls overlay can be added here */}
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+             {/* Controls overlay can be added here, pointer-events-none allows clicks to pass through */}
           </div>
           <div className="absolute bottom-6 right-6 md:bottom-10 md:right-10 z-10"> {/* Added z-10 to ensure button is above iframe */}
             <Button
