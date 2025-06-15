@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,11 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '@/components/ui/sheet';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Bot, User, Sparkles, X } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Send, Bot, User, Sparkles, X, Paperclip, XCircle } from 'lucide-react';
 import { FashionSuggestionsDisplay } from './fashion-suggestions-display';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image'; // For Next.js optimized images, if applicable for data URIs. Otherwise, standard img.
+import { Input } from '@/components/ui/input';
+
 
 interface AIAssistantPanelProps {
   isOpen: boolean;
@@ -23,7 +27,9 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImageDataUri, setSelectedImageDataUri] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -41,7 +47,7 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
         {
           id: Date.now().toString(),
           sender: 'ai',
-          text: `Hi! I'm your Fashion Decoder assistant. Ask me anything about fashion!`,
+          text: `Hi! I'm your Fashion Decoder assistant. Ask me anything about fashion, or attach an image for more specific help!`,
           timestamp: new Date(),
         },
       ]);
@@ -55,27 +61,68 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
     }
   }, [messages]);
 
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImageDataUri(reader.result as string);
+      };
+      reader.onerror = () => {
+        toast({
+          variant: 'destructive',
+          title: 'Image Read Error',
+          description: 'Could not read the selected image. Please try another file.',
+        });
+        setSelectedImageDataUri(null);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset file input value to allow selecting the same file again after removing it
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImageDataUri(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSendMessage = async () => {
-    if (inputValue.trim() === '' || isLoading) return;
+    if ((inputValue.trim() === '' && !selectedImageDataUri) || isLoading) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       sender: 'user',
       text: inputValue,
       timestamp: new Date(),
+      imageDataUri: selectedImageDataUri || undefined,
     };
     setMessages((prevMessages) => [...prevMessages, userMessage]);
+    
+    const currentInputValue = inputValue;
+    const currentSelectedImageDataUri = selectedImageDataUri;
+
     setInputValue('');
+    setSelectedImageDataUri(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setIsLoading(true);
 
     try {
-      const response = await getFashionAssistanceAction({ question: inputValue, context: initialContext });
+      const response = await getFashionAssistanceAction({
+        question: currentInputValue,
+        context: messages.length > 0 && messages[0].sender === 'ai' && messages[0].text.startsWith('Keywords found:') ? initialContext : undefined, // Pass DripSeek context if it was the first message
+        photoDataUri: currentSelectedImageDataUri || undefined,
+      });
+
       if (response.success && response.data) {
         let aiResponseText = response.data.answer;
         if (response.data.searchLink) {
-          // Append the search link to the AI's answer.
-          // For simplicity, we're adding it as plain text. A more advanced implementation
-          // might use Markdown rendering to make it a clickable link.
           aiResponseText += `\n\nShop similar items: ${response.data.searchLink}`;
         }
         const aiMessage: ChatMessage = {
@@ -114,7 +161,7 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
             <Sparkles size={28} className="mr-2 text-primary" /> Fashion AI Assistant
           </SheetTitle>
           <SheetDescription>
-            Ask about items, styles, or get fashion advice. If DripSeek identified items, context is automatically included.
+            Ask about items, styles, or get fashion advice. Upload an image for more specific help!
           </SheetDescription>
         </SheetHeader>
         
@@ -135,7 +182,7 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
                     }`}
                   >
                     {message.sender === 'ai' && (
-                      <Avatar className="h-8 w-8">
+                      <Avatar className="h-8 w-8 self-start"> {/* Align AI avatar to top */}
                         <AvatarFallback><Bot size={18} /></AvatarFallback>
                       </Avatar>
                     )}
@@ -146,13 +193,23 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
+                      {message.imageDataUri && message.sender === 'user' && (
+                        // Using standard img for data URIs as next/image might require configuration for them
+                        // or specific loader props. Keep it simple for now.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={message.imageDataUri}
+                          alt="User upload"
+                          className="max-w-full h-auto rounded-md mb-2 max-h-60 object-contain"
+                        />
+                      )}
                       <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                       <p className={`text-xs mt-1 ${message.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground/70'}`}>
                         {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                      {message.sender === 'user' && (
-                      <Avatar className="h-8 w-8">
+                      <Avatar className="h-8 w-8 self-start"> {/* Align User avatar to top */}
                         <AvatarFallback><User size={18} /></AvatarFallback>
                       </Avatar>
                     )}
@@ -170,7 +227,47 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
                 )}
               </div>
             </ScrollArea>
+            
+            {selectedImageDataUri && (
+              <div className="mb-2 p-2 border rounded-md relative bg-muted/50">
+                <p className="text-xs text-muted-foreground mb-1">Attached image:</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedImageDataUri}
+                  alt="Selected preview"
+                  className="max-w-full h-auto rounded max-h-28 object-contain"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-1 right-1 h-6 w-6 text-muted-foreground hover:text-destructive"
+                  onClick={handleRemoveImage}
+                  aria-label="Remove image"
+                >
+                  <XCircle size={16} />
+                </Button>
+              </div>
+            )}
+
             <div className="mt-auto flex gap-2 border-t pt-4">
+              <Input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleImageSelect}
+                className="hidden"
+                id="chat-image-upload"
+                aria-label="Upload image for chat"
+              />
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => fileInputRef.current?.click()} 
+                aria-label="Attach image"
+                disabled={isLoading}
+              >
+                <Paperclip size={18} />
+              </Button>
               <Textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
@@ -180,12 +277,17 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
                     handleSendMessage();
                   }
                 }}
-                placeholder="Ask about fashion..."
+                placeholder={selectedImageDataUri ? "Add a comment about the image..." : "Ask about fashion..."}
                 className="flex-grow resize-none"
                 rows={1}
                 aria-label="Chat input"
+                disabled={isLoading}
               />
-              <Button onClick={handleSendMessage} disabled={isLoading || inputValue.trim() === ''} aria-label="Send message">
+              <Button 
+                onClick={handleSendMessage} 
+                disabled={isLoading || (inputValue.trim() === '' && !selectedImageDataUri)} 
+                aria-label="Send message"
+              >
                 <Send size={18} />
               </Button>
             </div>

@@ -15,6 +15,9 @@ import {z} from 'genkit';
 const ProvideFashionAssistanceInputSchema = z.object({
   question: z.string().describe('The user question about fashion.'),
   context: z.string().optional().describe('Additional context for the question, typically fashion keywords.'),
+  photoDataUri: z.string().optional().describe(
+    "An optional image provided by the user, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+  ),
 });
 export type ProvideFashionAssistanceInput = z.infer<typeof ProvideFashionAssistanceInputSchema>;
 
@@ -37,6 +40,11 @@ const prompt = ai.definePrompt({
 Answer the following question based on your knowledge of fashion trends, styles, and brands.
 
 Question: {{{question}}}
+
+{{#if photoDataUri}}
+The user has also provided this image for context:
+{{media url=photoDataUri}}
+{{/if}}
 
 {{#if context}}
 Context from DripSeek (fashion keywords identified from an image): {{{context}}}

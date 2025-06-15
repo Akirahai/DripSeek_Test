@@ -24,6 +24,7 @@ export interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
   timestamp: Date;
+  imageDataUri?: string; // To store the image data URI for user-uploaded images
 }
 
 export type ProductFiltersType = {
