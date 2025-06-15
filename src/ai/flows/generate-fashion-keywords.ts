@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -57,7 +58,13 @@ const generateFashionKeywordsFlow = ai.defineFlow(
     outputSchema: GenerateFashionKeywordsOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const response = await prompt(input);
+    const output = response.output;
+    if (!output) {
+      console.error('Generate fashion keywords flow did not receive a valid output from the prompt.');
+      throw new Error('AI model did not provide a valid response structure for keywords.');
+    }
+    return output;
   }
 );
+

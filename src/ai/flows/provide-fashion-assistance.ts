@@ -1,3 +1,4 @@
+
 // src/ai/flows/provide-fashion-assistance.ts
 'use server';
 
@@ -64,7 +65,13 @@ const provideFashionAssistanceFlow = ai.defineFlow(
     outputSchema: ProvideFashionAssistanceOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const response = await prompt(input);
+    const output = response.output;
+    if (!output) {
+      console.error('Fashion assistance flow did not receive a valid output from the prompt.');
+      throw new Error('AI model did not provide a valid response structure.');
+    }
+    return output;
   }
 );
+

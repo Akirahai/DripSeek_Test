@@ -50,8 +50,11 @@ export function AIAssistantPanel({
 
   useEffect(() => {
     if (initialContext && isOpen) {
-      // Only add initial context message if chat tab is active or becoming active
-      if (activeTab === 'chat' && (messages.length === 0 || messages[0].text !== `Keywords found: "${initialContext}". What would you like to know about the fashion in this scene? Ask about specific items, styles, or where to find them! You can also browse suggestions below.`)) {
+      // Only add initial context message if chat tab is active
+      // and the message isn't already the one we intend to add or messages are empty.
+      if (activeTab === 'chat' && 
+          (messages.length === 0 || 
+           (messages.length > 0 && messages[0].text !== `Context: "${initialContext}". What would you like to know? Ask about specific items, styles, or where to find them!`))) {
         setMessages([
           {
             id: Date.now().toString(),
@@ -71,8 +74,7 @@ export function AIAssistantPanel({
         },
       ]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialContext, isOpen, activeTab]);
+  }, [initialContext, isOpen, activeTab, messages]);
 
   useEffect(() => {
     if (scrollAreaRef.current && activeTab === 'chat') {
@@ -365,3 +367,4 @@ export function AIAssistantPanel({
     </div>
   );
 }
+
