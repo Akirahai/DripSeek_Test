@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -11,6 +12,7 @@ import { SAMPLE_IMAGE_DATA_URI } from '@/lib/static-data';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
+import type { XRayFashionItem } from '@/lib/types'; // Import XRayFashionItem
 
 export default function HomePage() {
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
@@ -21,12 +23,10 @@ export default function HomePage() {
   const handleDripSeekClick = async () => {
     setIsDripSeekLoading(true);
     setAiAssistantContext(undefined); // Reset context
-    setIsAIAssistantOpen(true);
+    setIsAIAssistantOpen(true); // Open AI assistant immediately for DripSeek
 
     try {
-      // Simulate frame capture by using a sample image.
-      // In a real app with direct video control (not a YouTube iframe),
-      // you might capture a frame from the video element here.
+      // Simulate frame capture
       const result = await getFashionKeywordsAction({ photoDataUri: SAMPLE_IMAGE_DATA_URI });
       if (result.success && result.data) {
         setAiAssistantContext(result.data.keywords);
@@ -49,6 +49,16 @@ export default function HomePage() {
     }
   };
 
+  // Handler for when an X-Ray item is clicked in DemoPlayback
+  const handleXRayItemClicked = (item: XRayFashionItem) => {
+    setAiAssistantContext(item.searchKeywords || item.name);
+    setIsAIAssistantOpen(true);
+     toast({
+        title: `Exploring: ${item.name}`,
+        description: "Ask the AI assistant for more details, styling tips, or where to find similar items!",
+      });
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
@@ -59,7 +69,7 @@ export default function HomePage() {
           </h1>
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Instantly identify and explore fashion from your favorite shows and movies.
-            Click the DripSeek button in our demo below to get started!
+            Try the X-Ray or DripSeek buttons in our demo below!
           </p>
           <Button size="lg" onClick={() => document.getElementById('demo-playback-section')?.scrollIntoView({ behavior: 'smooth' })}>
             <Sparkles className="mr-2 h-5 w-5" />
@@ -70,7 +80,11 @@ export default function HomePage() {
         <FeaturedFashion />
         
         <div id="demo-playback-section">
-          <DemoPlayback onDripSeekClick={handleDripSeekClick} />
+          {/* Pass the new handler to DemoPlayback */}
+          <DemoPlayback 
+            onDripSeekClick={handleDripSeekClick} 
+            onXRayItemClicked={handleXRayItemClicked} 
+          />
         </div>
 
         {isDripSeekLoading && (

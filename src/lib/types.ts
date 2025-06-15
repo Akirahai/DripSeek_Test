@@ -33,3 +33,12 @@ export type ProductFiltersType = {
   brand: string;
   priceRange: string; // e.g. "0-50", "50-100", "100+"
 };
+
+export interface XRayFashionItem {
+  id: string;
+  name: string;
+  imageUrl: string;
+  dataAiHint?: string;
+  description?: string; // Optional: short description or character wearing it
+  searchKeywords: string; // Keywords to use for search or AI context
+}
