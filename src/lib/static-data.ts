@@ -1,4 +1,5 @@
-import type { FeaturedItem, Product } from './types';
+
+import type { FeaturedItem, Product, XRayFashionItem } from './types';
 
 export const FEATURED_ITEMS: FeaturedItem[] = [
   {
@@ -116,12 +117,35 @@ export const ALL_PRODUCTS: Product[] = [
 ];
 
 export const SAMPLE_IMAGE_DATA_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; // 1x1 Transparent Pixel, replace with a more meaningful small image if possible or instruct user. For testing, this is fine.
-// A slightly more complex, small placeholder (e.g., a 10x10 colored square) might be better if the AI flow needs some visual input.
-// Example 10x10 blue square:
-// export const SAMPLE_IMAGE_DATA_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNkYPhfz0AEYBxVSF+FAAhKDveK6fL4AAAAAElFTkSuQmCC';
 
 export const AVAILABLE_COLORS = Array.from(new Set(ALL_PRODUCTS.map(p => p.color)));
 export const AVAILABLE_STYLES = Array.from(new Set(ALL_PRODUCTS.map(p => p.style)));
 export const AVAILABLE_BRANDS = Array.from(new Set(ALL_PRODUCTS.map(p => p.brand)));
 export const PRICE_RANGES = ["All", "0-50", "50-100", "100-200", "200+"];
 
+export const SAMPLE_XRAY_ITEMS: XRayFashionItem[] = [
+  {
+    id: 'xray1',
+    name: 'Vibrant Silk Scarf',
+    imageUrl: 'https://placehold.co/100x150.png',
+    dataAiHint: 'silk scarf',
+    description: 'Worn by the lead actress in the cafe scene.',
+    searchKeywords: 'vibrant silk scarf floral print',
+  },
+  {
+    id: 'xray2',
+    name: 'Retro Aviator Sunglasses',
+    imageUrl: 'https://placehold.co/100x150.png',
+    dataAiHint: 'aviator sunglasses',
+    description: 'Seen on the detective during the car chase.',
+    searchKeywords: 'retro aviator sunglasses gold frame',
+  },
+  {
+    id: 'xray3',
+    name: 'Tailored Tweed Blazer',
+    imageUrl: 'https://placehold.co/100x150.png',
+    dataAiHint: 'tweed blazer',
+    description: 'A key piece in the protagonist\'s wardrobe.',
+    searchKeywords: 'women tailored tweed blazer classic',
+  },
+];

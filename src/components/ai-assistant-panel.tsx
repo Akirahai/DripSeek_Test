@@ -2,47 +2,66 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { ChatMessage } from '@/lib/types';
+import type { ChatMessage, XRayFashionItem } from '@/lib/types';
 import { getFashionAssistanceAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Bot, User, Sparkles, X, Paperclip, XCircle } from 'lucide-react';
+import { Send, Bot, User, Sparkles, X, Paperclip, XCircle, List, MessageSquare, ShoppingBag } from 'lucide-react';
 import { FashionSuggestionsDisplay } from './fashion-suggestions-display';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image'; // For Next.js optimized images, if applicable for data URIs. Otherwise, standard img.
+import Image from 'next/image';
 import { Input } from '@/components/ui/input';
-
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // For IdentifiedItems tab
 
 interface AIAssistantPanelProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
-  initialContext?: string; // e.g., keywords from DripSeek
+  isOpen: boolean; // Could be used for initial open state or animations
+  onCloseRequest: () => void; // Callback to inform parent to close the panel
+  initialContext?: string;
+  identifiedItems: XRayFashionItem[];
+  onItemClickedForChat: (item: XRayFashionItem) => void;
+  initialActiveTab?: 'chat' | 'identified' | 'suggestions';
+  onActiveTabChange?: (tab: 'chat' | 'identified' | 'suggestions') => void;
 }
 
-export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAssistantPanelProps) {
+export function AIAssistantPanel({ 
+  isOpen, 
+  onCloseRequest, 
+  initialContext, 
+  identifiedItems, 
+  onItemClickedForChat,
+  initialActiveTab = 'chat',
+  onActiveTabChange
+}: AIAssistantPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImageDataUri, setSelectedImageDataUri] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'chat' | 'identified' | 'suggestions'>(initialActiveTab);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
+    setActiveTab(initialActiveTab);
+  }, [initialActiveTab]);
+
+  useEffect(() => {
     if (initialContext && isOpen) {
-      setMessages([
-        {
-          id: Date.now().toString(),
-          sender: 'ai',
-          text: `Keywords found: "${initialContext}". What would you like to know about the fashion in this scene? Ask about specific items, styles, or where to find them! You can also browse suggestions below.`,
-          timestamp: new Date(),
-        },
-      ]);
-    } else if (isOpen && messages.length === 0) {
+      // Only add initial context message if chat tab is active or becoming active
+      if (activeTab === 'chat' && (messages.length === 0 || messages[0].text !== `Keywords found: "${initialContext}". What would you like to know about the fashion in this scene? Ask about specific items, styles, or where to find them! You can also browse suggestions below.`)) {
+        setMessages([
+          {
+            id: Date.now().toString(),
+            sender: 'ai',
+            text: `Context: "${initialContext}". What would you like to know? Ask about specific items, styles, or where to find them!`,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    } else if (isOpen && messages.length === 0 && activeTab === 'chat') {
        setMessages([
         {
           id: Date.now().toString(),
@@ -53,13 +72,13 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
       ]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialContext, isOpen]);
+  }, [initialContext, isOpen, activeTab]);
 
   useEffect(() => {
-    if (scrollAreaRef.current) {
+    if (scrollAreaRef.current && activeTab === 'chat') {
       scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, activeTab]);
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -78,7 +97,6 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
       };
       reader.readAsDataURL(file);
     }
-    // Reset file input value to allow selecting the same file again after removing it
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -107,7 +125,7 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
     const currentSelectedImageDataUri = selectedImageDataUri;
 
     setInputValue('');
-    setSelectedImageDataUri(null);
+    setSelectedImageDataUri(null); // Clear after sending
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -116,14 +134,14 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
     try {
       const response = await getFashionAssistanceAction({
         question: currentInputValue,
-        context: messages.length > 0 && messages[0].sender === 'ai' && messages[0].text.startsWith('Keywords found:') ? initialContext : undefined, // Pass DripSeek context if it was the first message
+        context: initialContext, 
         photoDataUri: currentSelectedImageDataUri || undefined,
       });
 
       if (response.success && response.data) {
         let aiResponseText = response.data.answer;
         if (response.data.searchLink) {
-          aiResponseText += `\n\nShop similar items: ${response.data.searchLink}`;
+          aiResponseText += `\n\nShop similar items: [${response.data.searchLink}](${response.data.searchLink})`;
         }
         const aiMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -153,157 +171,197 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
     }
   };
 
+  const handleIdentifiedItemClick = (item: XRayFashionItem) => {
+    onItemClickedForChat(item);
+    setActiveTab('chat');
+    if (onActiveTabChange) onActiveTabChange('chat');
+  };
+  
+  const handleTabChange = (value: string) => {
+    const newTab = value as 'chat' | 'identified' | 'suggestions';
+    setActiveTab(newTab);
+    if (onActiveTabChange) onActiveTabChange(newTab);
+  };
+
+  if (!isOpen) return null; // Panel is controlled by parent's layout
+
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl p-0 flex flex-col" side="right">
-        <SheetHeader className="p-6 pb-0">
-          <SheetTitle className="flex items-center text-2xl font-headline">
-            <Sparkles size={28} className="mr-2 text-primary" /> Fashion AI Assistant
-          </SheetTitle>
-          <SheetDescription>
-            Ask about items, styles, or get fashion advice. Upload an image for more specific help!
-          </SheetDescription>
-        </SheetHeader>
+    <div className="bg-card border border-border rounded-lg shadow-xl flex flex-col h-full overflow-hidden">
+      <div className="p-4 border-b flex items-center justify-between">
+        <div className="flex items-center">
+          <Sparkles size={24} className="mr-2 text-primary" />
+          <h2 className="text-xl font-headline">Fashion Assistant</h2>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onCloseRequest} aria-label="Close panel">
+          <X size={20} />
+        </Button>
+      </div>
+      
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-grow flex flex-col min-h-0">
+        <TabsList className="mx-4 mt-2 grid w-auto grid-cols-3">
+          <TabsTrigger value="chat"><MessageSquare size={16} className="mr-1.5"/>Chat</TabsTrigger>
+          <TabsTrigger value="identified"><List size={16} className="mr-1.5"/>Items</TabsTrigger>
+          <TabsTrigger value="suggestions"><ShoppingBag size={16} className="mr-1.5"/>Explore</TabsTrigger>
+        </TabsList>
         
-        <Tabs defaultValue="chat" className="flex-grow flex flex-col min-h-0">
-          <TabsList className="mx-6 mt-4 grid w-auto grid-cols-2">
-            <TabsTrigger value="chat">Chat</TabsTrigger>
-            <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="chat" className="flex-grow flex flex-col min-h-0 p-6 pt-2 data-[state=inactive]:hidden">
-            <ScrollArea ref={scrollAreaRef} className="flex-grow mb-4 pr-4 -mr-4">
-              <div className="space-y-4">
-                {messages.map((message) => (
+        <TabsContent value="chat" className="flex-grow flex flex-col min-h-0 p-4 data-[state=inactive]:hidden">
+          <ScrollArea ref={scrollAreaRef} className="flex-grow mb-4 pr-2 -mr-2">
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex items-end gap-2 ${
+                    message.sender === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  {message.sender === 'ai' && (
+                    <Avatar className="h-8 w-8 self-start">
+                      <AvatarFallback><Bot size={18} /></AvatarFallback>
+                    </Avatar>
+                  )}
                   <div
-                    key={message.id}
-                    className={`flex items-end gap-2 ${
-                      message.sender === 'user' ? 'justify-end' : 'justify-start'
+                    className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${
+                      message.sender === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
                     }`}
                   >
-                    {message.sender === 'ai' && (
-                      <Avatar className="h-8 w-8 self-start"> {/* Align AI avatar to top */}
-                        <AvatarFallback><Bot size={18} /></AvatarFallback>
-                      </Avatar>
+                    {message.imageDataUri && message.sender === 'user' && (
+                      <img
+                        src={message.imageDataUri}
+                        alt="User upload"
+                        className="max-w-full h-auto rounded-md mb-2 max-h-48 object-contain"
+                      />
                     )}
-                    <div
-                      className={`max-w-[75%] rounded-lg px-4 py-2 shadow ${
-                        message.sender === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {message.imageDataUri && message.sender === 'user' && (
-                        // Using standard img for data URIs as next/image might require configuration for them
-                        // or specific loader props. Keep it simple for now.
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={message.imageDataUri}
-                          alt="User upload"
-                          className="max-w-full h-auto rounded-md mb-2 max-h-60 object-contain"
-                        />
-                      )}
-                      <p className="text-sm whitespace-pre-wrap">{message.text}</p>
-                      <p className={`text-xs mt-1 ${message.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground/70'}`}>
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                     {message.sender === 'user' && (
-                      <Avatar className="h-8 w-8 self-start"> {/* Align User avatar to top */}
-                        <AvatarFallback><User size={18} /></AvatarFallback>
-                      </Avatar>
-                    )}
+                    <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                    <p className={`text-xs mt-1 ${message.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground/70'}`}>
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
-                ))}
-                {isLoading && (
-                  <div className="flex items-end gap-2 justify-start">
-                    <Avatar className="h-8 w-8">
-                       <AvatarFallback><Bot size={18}/></AvatarFallback>
+                   {message.sender === 'user' && (
+                    <Avatar className="h-8 w-8 self-start">
+                      <AvatarFallback><User size={18} /></AvatarFallback>
                     </Avatar>
-                    <div className="max-w-[75%] rounded-lg px-4 py-3 bg-muted text-muted-foreground shadow">
-                      <p className="text-sm italic">Fashion Decoder is thinking...</p>
-                    </div>
+                  )}
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex items-end gap-2 justify-start">
+                  <Avatar className="h-8 w-8">
+                     <AvatarFallback><Bot size={18}/></AvatarFallback>
+                  </Avatar>
+                  <div className="max-w-[75%] rounded-lg px-3 py-2 bg-muted text-muted-foreground shadow-sm">
+                    <p className="text-sm italic">Fashion Decoder is thinking...</p>
                   </div>
-                )}
-              </div>
-            </ScrollArea>
-            
-            {selectedImageDataUri && (
-              <div className="mb-2 p-2 border rounded-md relative bg-muted/50">
-                <p className="text-xs text-muted-foreground mb-1">Attached image:</p>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={selectedImageDataUri}
-                  alt="Selected preview"
-                  className="max-w-full h-auto rounded max-h-28 object-contain"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-1 right-1 h-6 w-6 text-muted-foreground hover:text-destructive"
-                  onClick={handleRemoveImage}
-                  aria-label="Remove image"
-                >
-                  <XCircle size={16} />
-                </Button>
-              </div>
-            )}
-
-            <div className="mt-auto flex gap-2 border-t pt-4">
-              <Input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef}
-                onChange={handleImageSelect}
-                className="hidden"
-                id="chat-image-upload"
-                aria-label="Upload image for chat"
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          
+          {selectedImageDataUri && (
+            <div className="mb-2 p-2 border rounded-md relative bg-muted/50">
+              <p className="text-xs text-muted-foreground mb-1">Attached image:</p>
+              <img
+                src={selectedImageDataUri}
+                alt="Selected preview"
+                className="max-w-full h-auto rounded max-h-24 object-contain"
               />
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={() => fileInputRef.current?.click()} 
-                aria-label="Attach image"
-                disabled={isLoading}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-1 right-1 h-5 w-5 text-muted-foreground hover:text-destructive"
+                onClick={handleRemoveImage}
+                aria-label="Remove image"
               >
-                <Paperclip size={18} />
-              </Button>
-              <Textarea
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                placeholder={selectedImageDataUri ? "Add a comment about the image..." : "Ask about fashion..."}
-                className="flex-grow resize-none"
-                rows={1}
-                aria-label="Chat input"
-                disabled={isLoading}
-              />
-              <Button 
-                onClick={handleSendMessage} 
-                disabled={isLoading || (inputValue.trim() === '' && !selectedImageDataUri)} 
-                aria-label="Send message"
-              >
-                <Send size={18} />
+                <XCircle size={14} />
               </Button>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="suggestions" className="flex-grow overflow-y-auto data-[state=inactive]:hidden">
-            <FashionSuggestionsDisplay />
-          </TabsContent>
-        </Tabs>
-        
-        <SheetFooter className="p-6 border-t">
-          <SheetClose asChild>
-            <Button variant="outline"> <X size={16} className="mr-1"/> Close Panel</Button>
-          </SheetClose>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+          <div className="mt-auto flex gap-2 border-t pt-3">
+            <Input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleImageSelect}
+              className="hidden"
+              id="chat-image-upload-panel"
+              aria-label="Upload image for chat"
+            />
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => fileInputRef.current?.click()} 
+              aria-label="Attach image"
+              disabled={isLoading}
+            >
+              <Paperclip size={18} />
+            </Button>
+            <Textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              placeholder={selectedImageDataUri ? "Add a comment about the image..." : "Ask about fashion..."}
+              className="flex-grow resize-none"
+              rows={1}
+              aria-label="Chat input"
+              disabled={isLoading}
+            />
+            <Button 
+              onClick={handleSendMessage} 
+              disabled={isLoading || (inputValue.trim() === '' && !selectedImageDataUri)} 
+              aria-label="Send message"
+            >
+              <Send size={18} />
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="identified" className="flex-grow overflow-y-auto p-4 data-[state=inactive]:hidden">
+          <ScrollArea className="h-full pr-2 -mr-2">
+            <div className="space-y-3">
+              {identifiedItems.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No items identified from the scene yet.</p>
+              )}
+              {identifiedItems.map((item) => (
+                <Card 
+                  key={item.id} 
+                  className="bg-muted/50 hover:bg-muted transition-colors cursor-pointer border"
+                  onClick={() => handleIdentifiedItemClick(item)}
+                  tabIndex={0}
+                  onKeyPress={(e) => e.key === 'Enter' && handleIdentifiedItemClick(item)}
+                >
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div className="relative w-16 h-20 rounded overflow-hidden shrink-0 bg-white">
+                      <Image
+                        src={item.imageUrl}
+                        alt={item.name}
+                        layout="fill"
+                        objectFit="cover"
+                        data-ai-hint={item.dataAiHint || 'fashion item'}
+                      />
+                    </div>
+                    <div className="flex-grow">
+                      <CardTitle className="text-sm font-semibold text-card-foreground mb-0.5">{item.name}</CardTitle>
+                      {item.description && <p className="text-xs text-muted-foreground mb-1 truncate">{item.description}</p>}
+                       <p className="text-xs text-primary hover:underline">Ask AI about this</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="suggestions" className="flex-grow overflow-y-auto data-[state=inactive]:hidden">
+          <FashionSuggestionsDisplay />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

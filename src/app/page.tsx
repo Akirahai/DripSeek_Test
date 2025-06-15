@@ -1,44 +1,49 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { FeaturedFashion } from '@/components/featured-fashion';
 import { DemoPlayback } from '@/components/demo-playback';
 import { AIAssistantPanel } from '@/components/ai-assistant-panel';
 import { getFashionKeywordsAction } from '@/lib/actions';
-import { SAMPLE_IMAGE_DATA_URI } from '@/lib/static-data';
+import { SAMPLE_IMAGE_DATA_URI, SAMPLE_XRAY_ITEMS } from '@/lib/static-data';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
-import type { XRayFashionItem } from '@/lib/types'; // Import XRayFashionItem
+import type { XRayFashionItem } from '@/lib/types';
 
 export default function HomePage() {
-  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [aiAssistantContext, setAiAssistantContext] = useState<string | undefined>(undefined);
+  const [identifiedPanelItems, setIdentifiedPanelItems] = useState<XRayFashionItem[]>(SAMPLE_XRAY_ITEMS); // For "Identified Items" tab
+  const [activeTabInPanel, setActiveTabInPanel] = useState<'chat' | 'identified' | 'suggestions'>('chat');
   const [isDripSeekLoading, setIsDripSeekLoading] = useState(false);
   const { toast } = useToast();
 
   const handleDripSeekClick = async () => {
     setIsDripSeekLoading(true);
     setAiAssistantContext(undefined); // Reset context
-    setIsAIAssistantOpen(true); // Open AI assistant immediately for DripSeek
+    setIdentifiedPanelItems(SAMPLE_XRAY_ITEMS); // Populate with sample items for demo
+    setActiveTabInPanel('identified'); // Default to identified items tab on DripSeek
+    setIsRightPanelOpen(true);
 
     try {
-      // Simulate frame capture
       const result = await getFashionKeywordsAction({ photoDataUri: SAMPLE_IMAGE_DATA_URI });
       if (result.success && result.data) {
         setAiAssistantContext(result.data.keywords);
+        // Update toast to reflect new panel behavior
         toast({
-          title: "Fashion Keywords Identified!",
-          description: `AI found: "${result.data.keywords}". Ask the assistant for details or shopping links!`,
+          title: "Fashion Decoded!",
+          description: `Identified keywords: "${result.data.keywords}". Explore items or chat with the AI in the panel!`,
         });
+        // Potentially, in the future, process keywords to generate a list for 'identifiedPanelItems'
       } else {
         throw new Error(result.error || 'Failed to extract keywords.');
       }
     } catch (error) {
-      setAiAssistantContext("Could not identify items from the scene. You can still ask general fashion questions!");
+      setAiAssistantContext("Could not identify items. Ask general fashion questions!");
        toast({
         variant: "destructive",
         title: "DripSeek Error",
@@ -49,15 +54,21 @@ export default function HomePage() {
     }
   };
 
-  // Handler for when an X-Ray item is clicked in DemoPlayback
-  const handleXRayItemClicked = (item: XRayFashionItem) => {
+  // Handler for when an item is clicked (e.g., from FeaturedFashion or future X-Ray items within the panel)
+  const handleItemClickedForAIAssistance = (item: XRayFashionItem | { name: string; searchKeywords: string }) => {
     setAiAssistantContext(item.searchKeywords || item.name);
-    setIsAIAssistantOpen(true);
+    setIdentifiedPanelItems(SAMPLE_XRAY_ITEMS); // Keep sample items for now
+    setActiveTabInPanel('chat'); // Switch to chat tab for specific questions
+    setIsRightPanelOpen(true);
      toast({
         title: `Exploring: ${item.name}`,
         description: "Ask the AI assistant for more details, styling tips, or where to find similar items!",
       });
   };
+  
+  const handlePanelClose = () => {
+    setIsRightPanelOpen(false);
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -69,7 +80,7 @@ export default function HomePage() {
           </h1>
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Instantly identify and explore fashion from your favorite shows and movies.
-            Try the X-Ray or DripSeek buttons in our demo below!
+            Try the DripSeek button in our demo below!
           </p>
           <Button size="lg" onClick={() => document.getElementById('demo-playback-section')?.scrollIntoView({ behavior: 'smooth' })}>
             <Sparkles className="mr-2 h-5 w-5" />
@@ -77,14 +88,30 @@ export default function HomePage() {
           </Button>
         </section>
         
-        <FeaturedFashion />
+        {/* Pass handleItemClickedForAIAssistance to FeaturedFashion if it needs to trigger the panel */}
+        <FeaturedFashion /> 
         
-        <div id="demo-playback-section">
-          {/* Pass the new handler to DemoPlayback */}
-          <DemoPlayback 
-            onDripSeekClick={handleDripSeekClick} 
-            onXRayItemClicked={handleXRayItemClicked} 
-          />
+        <div id="demo-playback-section" className="flex flex-col md:flex-row gap-4 items-start">
+          <div className={`transition-all duration-300 ease-in-out ${isRightPanelOpen ? 'md:w-2/3' : 'w-full'}`}>
+            <DemoPlayback 
+              onDripSeekClick={handleDripSeekClick}
+              // onXRayItemClicked is no longer needed from DemoPlayback as the left overlay is removed
+            />
+          </div>
+          
+          {isRightPanelOpen && (
+            <div className="w-full md:w-1/3 md:max-w-md lg:max-w-lg xl:max-w-xl h-[calc(var(--vh,1vh)*80)] md:h-auto md:sticky md:top-24"> {/* Adjust height as needed */}
+              <AIAssistantPanel
+                isOpen={isRightPanelOpen} // Technically controls internal state for now
+                onCloseRequest={handlePanelClose} // New prop to request close from parent
+                initialContext={aiAssistantContext}
+                identifiedItems={identifiedPanelItems} // Pass items for the "Identified Items" tab
+                onItemClickedForChat={handleItemClickedForAIAssistance} // To set chat context from "Identified Items" tab
+                initialActiveTab={activeTabInPanel}
+                onActiveTabChange={setActiveTabInPanel}
+              />
+            </div>
+          )}
         </div>
 
         {isDripSeekLoading && (
@@ -98,11 +125,6 @@ export default function HomePage() {
         )}
 
       </main>
-      <AIAssistantPanel
-        isOpen={isAIAssistantOpen}
-        onOpenChange={setIsAIAssistantOpen}
-        initialContext={aiAssistantContext}
-      />
       <Footer />
     </div>
   );
