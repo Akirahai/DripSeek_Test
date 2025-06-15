@@ -24,19 +24,21 @@ export default function HomePage() {
     setIsAIAssistantOpen(true);
 
     try {
-      // In a real app, you'd capture a snapshot here. We use a sample.
+      // Simulate frame capture by using a sample image.
+      // In a real app with direct video control (not a YouTube iframe),
+      // you might capture a frame from the video element here.
       const result = await getFashionKeywordsAction({ photoDataUri: SAMPLE_IMAGE_DATA_URI });
       if (result.success && result.data) {
         setAiAssistantContext(result.data.keywords);
         toast({
-          title: "Keywords Found!",
-          description: `AI identified: ${result.data.keywords}. Ask the assistant for more details!`,
+          title: "Fashion Keywords Identified!",
+          description: `AI found: "${result.data.keywords}". Ask the assistant for details or shopping links!`,
         });
       } else {
         throw new Error(result.error || 'Failed to extract keywords.');
       }
     } catch (error) {
-      setAiAssistantContext("Could not identify items. You can still ask general fashion questions!");
+      setAiAssistantContext("Could not identify items from the scene. You can still ask general fashion questions!");
        toast({
         variant: "destructive",
         title: "DripSeek Error",

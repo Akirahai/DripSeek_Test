@@ -32,7 +32,7 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
         {
           id: Date.now().toString(),
           sender: 'ai',
-          text: `Keywords found: "${initialContext}". What would you like to know about the fashion in this scene? Or browse suggestions below!`,
+          text: `Keywords found: "${initialContext}". What would you like to know about the fashion in this scene? Ask about specific items, styles, or where to find them! You can also browse suggestions below.`,
           timestamp: new Date(),
         },
       ]);
@@ -71,10 +71,17 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
     try {
       const response = await getFashionAssistanceAction({ question: inputValue, context: initialContext });
       if (response.success && response.data) {
+        let aiResponseText = response.data.answer;
+        if (response.data.searchLink) {
+          // Append the search link to the AI's answer.
+          // For simplicity, we're adding it as plain text. A more advanced implementation
+          // might use Markdown rendering to make it a clickable link.
+          aiResponseText += `\n\nShop similar items: ${response.data.searchLink}`;
+        }
         const aiMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           sender: 'ai',
-          text: response.data.answer,
+          text: aiResponseText,
           timestamp: new Date(),
         };
         setMessages((prevMessages) => [...prevMessages, aiMessage]);
@@ -107,7 +114,7 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
             <Sparkles size={28} className="mr-2 text-primary" /> Fashion AI Assistant
           </SheetTitle>
           <SheetDescription>
-            Ask about items, styles, or get fashion advice.
+            Ask about items, styles, or get fashion advice. If DripSeek identified items, context is automatically included.
           </SheetDescription>
         </SheetHeader>
         
@@ -185,7 +192,6 @@ export function AIAssistantPanel({ isOpen, onOpenChange, initialContext }: AIAss
           </TabsContent>
 
           <TabsContent value="suggestions" className="flex-grow overflow-y-auto data-[state=inactive]:hidden">
-            {/* FashionSuggestionsDisplay will have its own ScrollArea if needed */}
             <FashionSuggestionsDisplay />
           </TabsContent>
         </Tabs>
