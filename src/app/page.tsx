@@ -33,12 +33,10 @@ export default function HomePage() {
       const result = await getFashionKeywordsAction({ photoDataUri: SAMPLE_IMAGE_DATA_URI });
       if (result.success && result.data) {
         setAiAssistantContext(result.data.keywords);
-        // Update toast to reflect new panel behavior
         toast({
           title: "Fashion Decoded!",
           description: `Identified keywords: "${result.data.keywords}". Explore items or chat with the AI in the panel!`,
         });
-        // Potentially, in the future, process keywords to generate a list for 'identifiedPanelItems'
       } else {
         throw new Error(result.error || 'Failed to extract keywords.');
       }
@@ -54,10 +52,12 @@ export default function HomePage() {
     }
   };
 
-  // Handler for when an item is clicked (e.g., from FeaturedFashion or future X-Ray items within the panel)
+  // Handler for when an item is clicked (e.g., from X-Ray overlay or "Identified Items" tab in the right panel)
   const handleItemClickedForAIAssistance = (item: XRayFashionItem | { name: string; searchKeywords: string }) => {
     setAiAssistantContext(item.searchKeywords || item.name);
-    setIdentifiedPanelItems(SAMPLE_XRAY_ITEMS); // Keep sample items for now
+    // SAMPLE_XRAY_ITEMS is already used for the "Identified Items" tab, so no need to change it here.
+    // If the X-Ray overlay provided different items, we might want to pass them to identifiedPanelItems.
+    // For now, let's assume X-Ray items are a subset or similar to what DripSeek might find.
     setActiveTabInPanel('chat'); // Switch to chat tab for specific questions
     setIsRightPanelOpen(true);
      toast({
@@ -80,7 +80,7 @@ export default function HomePage() {
           </h1>
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Instantly identify and explore fashion from your favorite shows and movies.
-            Try the DripSeek button in our demo below!
+            Try the DripSeek or X-Ray buttons in our demo below!
           </p>
           <Button size="lg" onClick={() => document.getElementById('demo-playback-section')?.scrollIntoView({ behavior: 'smooth' })}>
             <Sparkles className="mr-2 h-5 w-5" />
@@ -88,25 +88,24 @@ export default function HomePage() {
           </Button>
         </section>
         
-        {/* Pass handleItemClickedForAIAssistance to FeaturedFashion if it needs to trigger the panel */}
         <FeaturedFashion /> 
         
         <div id="demo-playback-section" className="flex flex-col md:flex-row gap-4 items-start">
           <div className={`transition-all duration-300 ease-in-out ${isRightPanelOpen ? 'md:w-2/3' : 'w-full'}`}>
             <DemoPlayback 
               onDripSeekClick={handleDripSeekClick}
-              // onXRayItemClicked is no longer needed from DemoPlayback as the left overlay is removed
+              onXRayItemClicked={handleItemClickedForAIAssistance} // Pass handler for X-Ray item clicks
             />
           </div>
           
           {isRightPanelOpen && (
-            <div className="w-full md:w-1/3 md:max-w-md lg:max-w-lg xl:max-w-xl h-[calc(var(--vh,1vh)*80)] md:h-auto md:sticky md:top-24"> {/* Adjust height as needed */}
+            <div className="w-full md:w-1/3 md:max-w-md lg:max-w-lg xl:max-w-xl h-[calc(var(--vh,1vh)*80)] md:h-auto md:sticky md:top-24">
               <AIAssistantPanel
-                isOpen={isRightPanelOpen} // Technically controls internal state for now
-                onCloseRequest={handlePanelClose} // New prop to request close from parent
+                isOpen={isRightPanelOpen}
+                onCloseRequest={handlePanelClose}
                 initialContext={aiAssistantContext}
-                identifiedItems={identifiedPanelItems} // Pass items for the "Identified Items" tab
-                onItemClickedForChat={handleItemClickedForAIAssistance} // To set chat context from "Identified Items" tab
+                identifiedItems={identifiedPanelItems} 
+                onItemClickedForChat={handleItemClickedForAIAssistance}
                 initialActiveTab={activeTabInPanel}
                 onActiveTabChange={setActiveTabInPanel}
               />
